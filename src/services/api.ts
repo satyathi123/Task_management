@@ -1,8 +1,10 @@
 import axios from 'axios';
 
-// Use relative path so Vite dev proxy handles CORS (see vite.config.ts)
-// In production, set this to the actual backend URL
-const API_BASE_URL = '/api';
+// Use relative path in development so Vite dev proxy handles CORS.
+// In production/deployment, point to the actual backend URL.
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api'
+  : (import.meta.env.VITE_API_URL || 'https://admin-moderator-backend-staging.up.railway.app/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
