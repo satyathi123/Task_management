@@ -1,0 +1,57 @@
+:root {
+  /* Color Palette */
+  --primary-color: #4b6bfb;
+  --primary-hover: #3b5bdb;
+  --primary-light: rgba(75, 107, 251, 0.1);
+  --success-color: #10b981;
+  --success-light: #ecfdf5;
+  --success-dark: #047857;
+  --warning-color: #f59e0b;
+  --warning-light: #fef3c7;
+  --warning-dark: #b45309;
+  --danger-color: #ef4444;
+  --danger-light: #fee2e2;
+  --danger-dark: #b91c1c;
+  --info-color: #3b82f6;
+  
+  /* Neutral Colors */
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+  
+  /* Pill Tag Colors */
+  --tag-grammar-bg: #fffbeb;
+  --tag-grammar-text: #d97706;
+  --tag-writing-bg: #fdf2f8;
+  --tag-writing-text: #db2777;
+  --tag-app-bg: #f0fdf4;
+  --tag-app-text: #16a34a;
+  --tag-easy-bg: #ccfbf1;
+  --tag-easy-text: #0d9488;
+  
+  /* Layout sizes */
+  --sidebar-width: 80px;
+  --sidebar-expanded-width: 240px;
+  --header-height: 70px;
+  
+  /* Typography */
+  --font-main: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Shadows & Radius */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-premium: 0 12px 30px rgba(0, 0, 0, 0.03);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
