@@ -17,6 +17,14 @@ import { confirmDelete, confirmClear, confirmReplace, showWarning, showSuccess }
 import { parseQuestionsCSV, generateCSVTemplate } from '../utils/csvParser';
 import '../styles/components.css';
 
+/** Internal flag: CSV rows are preview until the user edits that question. */
+type LocalQuestion = Question & { fromCsv?: boolean };
+
+const toApiQuestion = (q: LocalQuestion): Question => {
+  const { fromCsv: _, ...apiQuestion } = q;
+  return apiQuestion;
+};
+
 const AddQuestions: React.FC = () => {
   const { id: testId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -33,7 +41,7 @@ const AddQuestions: React.FC = () => {
   const [subTopics, setSubTopics] = useState<SubTopic[]>([]);
 
   // Questions Local State
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [importingCSV, setImportingCSV] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +100,7 @@ const AddQuestions: React.FC = () => {
         }
 
         const size = Math.max(testData.total_questions || 1, loadedQuestions.length);
-        const finalQuestions: Question[] = Array.from({ length: size }, (_, idx) => {
+        const finalQuestions: LocalQuestion[] = Array.from({ length: size }, (_, idx) => {
           if (loadedQuestions[idx]) {
             return {
               ...loadedQuestions[idx],
@@ -141,7 +149,7 @@ const AddQuestions: React.FC = () => {
   const updateActiveQuestion = (fields: Partial<Question>) => {
     setQuestions((prev) => {
       const updated = [...prev];
-      updated[activeIndex] = { ...updated[activeIndex], ...fields };
+      updated[activeIndex] = { ...updated[activeIndex], ...fields, fromCsv: false };
       return updated;
     });
   };
@@ -195,12 +203,12 @@ const AddQuestions: React.FC = () => {
         correct_option: 'option1',
         explanation: '',
       }));
-      setQuestions(resetQs);
+      setQuestions(resetQs.map((q) => ({ ...q, fromCsv: false })));
       setActiveIndex(0);
     }
   };
 
-  const isQuestionComplete = (q: Question) => {
+  const isQuestionComplete = (q: LocalQuestion) => {
     return (
       q.question.trim() !== '' &&
       q.option1.trim() !== '' &&
@@ -210,11 +218,20 @@ const AddQuestions: React.FC = () => {
     );
   };
 
+  /** CSV-imported rows count as complete only after the user edits them. */
+  const isQuestionSavable = (q: LocalQuestion) => isQuestionComplete(q) && !q.fromCsv;
+
   const handleSaveAndContinue = async () => {
-    // Validation
-    const filledQuestions = questions.filter(isQuestionComplete);
+    // Validation — same as manual: only fully filled questions, excluding unedited CSV rows
+    const filledQuestions = questions.filter(isQuestionSavable);
     if (filledQuestions.length === 0) {
-      showWarning('Incomplete Questions', 'Please fill out at least one question fully (question text + all 4 options) before continuing.');
+      const hasUneditedCsv = questions.some((q) => q.fromCsv && isQuestionComplete(q));
+      showWarning(
+        'Incomplete Questions',
+        hasUneditedCsv
+          ? 'CSV questions are loaded. Please edit each question you want to save (change any field), then click Save & Continue.'
+          : 'Please fill out at least one question fully (question text + all 4 options) before continuing.'
+      );
       return;
     }
 
@@ -224,14 +241,15 @@ const AddQuestions: React.FC = () => {
     try {
       // 1. Bulk Create/Update Questions
       const questionsToSave = filledQuestions.map((q) => {
+        const apiQ = toApiQuestion(q);
         return {
-          ...q,
-          subject: q.subject || resolvedSubjectId,
-          topic: q.topic || '',
-          sub_topic: q.sub_topic || '',
-          paragraph: q.paragraph || '',
-          media_url: q.media_url || '',
-          category: q.category || '',
+          ...apiQ,
+          subject: apiQ.subject || resolvedSubjectId,
+          topic: apiQ.topic || '',
+          sub_topic: apiQ.sub_topic || '',
+          paragraph: apiQ.paragraph || '',
+          media_url: apiQ.media_url || '',
+          category: apiQ.category || '',
         };
       });
 
@@ -338,8 +356,8 @@ const AddQuestions: React.FC = () => {
       });
 
       const minSize = Math.max(test?.total_questions || 1, imported.length);
-      const paddedQuestions: Question[] = Array.from({ length: minSize }, (_, idx) => {
-        if (imported[idx]) return imported[idx];
+      const paddedQuestions: LocalQuestion[] = Array.from({ length: minSize }, (_, idx) => {
+        if (imported[idx]) return { ...imported[idx], fromCsv: true };
         return {
           type: 'mcq',
           subject: resolvedSubjectId,
@@ -369,7 +387,7 @@ const AddQuestions: React.FC = () => {
           : '';
       showSuccess(
         'CSV Imported',
-        `Successfully imported ${imported.length} question(s).${skippedMsg}`
+        `Loaded ${imported.length} question(s). Edit each question you want to save.${skippedMsg}`
       );
     } catch (err: any) {
       showWarning('CSV Import Failed', err.message || 'Could not parse the CSV file.');
@@ -410,7 +428,7 @@ const AddQuestions: React.FC = () => {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }} className="flex flex-column gap-2">
           {questions.map((q, idx) => {
-            const isDone = isQuestionComplete(q);
+            const isDone = isQuestionSavable(q);
             const isActive = idx === activeIndex;
 
             return (
