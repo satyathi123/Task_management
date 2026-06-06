@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, Edit3 } from 'lucide-react';
 import {
@@ -13,7 +13,8 @@ import {
   SubTopic,
 } from '../services/api';
 import Loader from '../components/Loader';
-import { confirmDelete, confirmClear, showWarning, showInfo } from '../utils/swal';
+import { confirmDelete, confirmClear, confirmReplace, showWarning, showSuccess } from '../utils/swal';
+import { parseQuestionsCSV, generateCSVTemplate } from '../utils/csvParser';
 import '../styles/components.css';
 
 const AddQuestions: React.FC = () => {
@@ -34,6 +35,8 @@ const AddQuestions: React.FC = () => {
   // Questions Local State
   const [questions, setQuestions] = useState<Question[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [importingCSV, setImportingCSV] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loadTestAndQuestions = async () => {
@@ -280,11 +283,99 @@ const AddQuestions: React.FC = () => {
     }
   };
 
-  const handleCSVUpload = () => {
-    showInfo(
-      'CSV Import',
-      'Upload your question sheet CSV.<br/><br/><strong>Required columns:</strong><br/><code>question, option1, option2, option3, option4, correct_option, explanation, difficulty</code>',
+  const hasExistingContent = () =>
+    questions.some(
+      (q) =>
+        q.question.trim() !== '' ||
+        q.option1.trim() !== '' ||
+        q.option2.trim() !== '' ||
+        q.option3.trim() !== '' ||
+        q.option4.trim() !== '' ||
+        (q.explanation?.trim() ?? '') !== ''
     );
+
+  const handleCSVUpload = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([generateCSVTemplate()], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'questions_template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCSVFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !testId) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showWarning('Invalid File', 'Please upload a .csv file.');
+      return;
+    }
+
+    if (hasExistingContent()) {
+      const confirmed = await confirmReplace(
+        'Replace existing questions?',
+        'Importing a CSV will replace all current questions with the rows from your file. Continue?'
+      );
+      if (!confirmed) return;
+    }
+
+    setImportingCSV(true);
+    setError(null);
+
+    try {
+      const text = await file.text();
+      const { questions: imported, skippedRows } = parseQuestionsCSV(text, {
+        subject: resolvedSubjectId,
+        testId,
+        defaultDifficulty: test?.difficulty || 'easy',
+      });
+
+      const minSize = Math.max(test?.total_questions || 1, imported.length);
+      const paddedQuestions: Question[] = Array.from({ length: minSize }, (_, idx) => {
+        if (imported[idx]) return imported[idx];
+        return {
+          type: 'mcq',
+          subject: resolvedSubjectId,
+          question: '',
+          option1: '',
+          option2: '',
+          option3: '',
+          option4: '',
+          correct_option: 'option1',
+          explanation: '',
+          difficulty: test?.difficulty || 'easy',
+          topic: '',
+          sub_topic: '',
+          paragraph: '',
+          media_url: '',
+          category: '',
+          test_id: testId,
+        };
+      });
+
+      setQuestions(paddedQuestions);
+      setActiveIndex(0);
+
+      const skippedMsg =
+        skippedRows.length > 0
+          ? ` ${skippedRows.length} row(s) were skipped due to validation errors.`
+          : '';
+      showSuccess(
+        'CSV Imported',
+        `Successfully imported ${imported.length} question(s).${skippedMsg}`
+      );
+    } catch (err: any) {
+      showWarning('CSV Import Failed', err.message || 'Could not parse the CSV file.');
+    } finally {
+      setImportingCSV(false);
+    }
   };
 
   if (loading) return <Loader />;
@@ -292,6 +383,13 @@ const AddQuestions: React.FC = () => {
 
   return (
     <div className="flex fade-in" style={{ height: 'calc(100vh - var(--header-height))', overflow: 'hidden' }}>
+      <input
+        ref={csvInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={handleCSVFileChange}
+      />
       {/* Left Sidebar Checklist */}
       <div
         className="flex flex-column"
@@ -418,8 +516,19 @@ const AddQuestions: React.FC = () => {
                   onClick={handleCSVUpload}
                   className="btn btn-secondary"
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  disabled={importingCSV}
+                  id="btn_csv_upload"
                 >
-                  <FileSpreadsheet size={14} /> + CSV
+                  <FileSpreadsheet size={14} /> {importingCSV ? 'Importing...' : '+ CSV'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  title="Download sample CSV template"
+                >
+                  Template
                 </button>
                 <button
                   type="button"

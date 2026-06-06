@@ -108,6 +108,27 @@ export function showInfo(title: string, html: string): void {
 }
 
 /**
+ * Confirm dialog for replacing existing content (e.g. CSV import).
+ */
+export async function confirmReplace(
+  title: string,
+  html: string,
+): Promise<boolean> {
+  const result: SweetAlertResult = await Swal.fire({
+    title,
+    html,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Import',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: PRIMARY,
+    cancelButtonColor: NEUTRAL,
+    reverseButtons: true,
+  });
+  return result.isConfirmed;
+}
+
+/**
  * Publish-success modal — awaitable so the caller can navigate after it closes.
  */
 export async function showPublishSuccess(): Promise<void> {
